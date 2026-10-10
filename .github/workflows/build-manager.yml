@@ -100,8 +100,8 @@ jobs:
       # For push builds we inject OUR signing certificate as the second trust
       # slot (SIZE2/HASH2) via repository secrets, so the rebuilt manager
       # (re-signed with our keystore) is accepted by the module.
-      expected_size2: ${{ secrets.KSU_EXPECTED_SIZE2 }}
-      expected_hash2: ${{ secrets.KSU_EXPECTED_HASH2 }}
+      expected_size2: "0x0373"
+      expected_hash2: "c3f80f3ae63f225cd36afcfb682e51c8ec47ea1981ae71f2d9872200450b13a2"
     secrets: inherit
 
   build-ksuinit:
