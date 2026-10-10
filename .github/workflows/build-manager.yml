@@ -94,11 +94,13 @@ jobs:
           echo "Certificate hash: $HASH"
 
   build-lkm:
-    needs: generate-key
     uses: ./.github/workflows/build-lkm.yml
     with:
-      expected_size2: ${{ needs.generate-key.outputs.expected_size || '' }}
-      expected_hash2: ${{ needs.generate-key.outputs.expected_hash || '' }}
+      # For push builds we inject OUR signing certificate as the second trust
+      # slot (SIZE2/HASH2) via repository secrets, so the rebuilt manager
+      # (re-signed with our keystore) is accepted by the module.
+      expected_size2: ${{ secrets.KSU_EXPECTED_SIZE2 }}
+      expected_hash2: ${{ secrets.KSU_EXPECTED_HASH2 }}
     secrets: inherit
 
   build-ksuinit:
