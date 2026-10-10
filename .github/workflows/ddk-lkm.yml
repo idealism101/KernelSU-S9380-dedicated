@@ -35,6 +35,22 @@ jobs:
     - name: Checkout source code
       uses: actions/checkout@v7
 
+    # ----------------------------------------------------------------------
+    # Device-exact vermagic override for Samsung Galaxy S25 Ultra (pa3q/S9380)
+    # Kernel: 6.6.77-android15-8-2755199-abogkiS9380ZCU5BYI3-4k
+    # The DDK container's android15-6.6 kernel tree carries a generic GKI
+    # release string. Overriding UTS_RELEASE makes the built .ko's vermagic
+    # match `uname -r` EXACTLY so init_module() accepts it on the device.
+    # (Same technique already proven in the DFRoot dfroot-build pipeline.)
+    # ----------------------------------------------------------------------
+    - name: Override kernel release for SM-S9380 (android15-6.6 only)
+      if: inputs.kmi == 'android15-6.6'
+      run: |
+        echo "KDIR=$KDIR"
+        printf '#define UTS_RELEASE "%s"\n' "6.6.77-android15-8-2755199-abogkiS9380ZCU5BYI3-4k" > "$KDIR/include/generated/utsrelease.h"
+        printf '%s\n' "6.6.77-android15-8-2755199-abogkiS9380ZCU5BYI3-4k" > "$KDIR/include/config/kernel.release"
+        cat "$KDIR/include/generated/utsrelease.h"
+
     - name: Build kernelsu.ko
       env:
         EXPECTED_SIZE2: ${{ inputs.expected_size2 }}
@@ -76,9 +92,25 @@ jobs:
         llvm-strip -d "$OUT_DIR/$OUTPUT_NAME"
         echo "Size after stripping: $(du -h "$OUT_DIR/$OUTPUT_NAME" | cut -f1)"
 
+    - name: Assert vermagic matches the device (android15-6.6 only)
+      if: inputs.kmi == 'android15-6.6'
+      run: |
+        KO="/github/workspace/out/aarch64/android15-6.6_kernelsu.ko"
+        VM=$(strings "$KO" | grep '^vermagic=')
+        WANT="vermagic=6.6.77-android15-8-2755199-abogkiS9380ZCU5BYI3-4k SMP preempt mod_unload modversions aarch64"
+        echo "got  : $VM"
+        echo "want : $WANT"
+        if [ "$VM" != "$WANT" ]; then
+          echo "::error::vermagic mismatch"
+          exit 1
+        fi
+        echo "VERMAGIC MATCHES DEVICE"
+        echo "=== manager-signature trust slots ==="
+        echo "SIZE1/HASH1 (author, default): 0x02d6 / 195bf7247e66ed412bdabad9bc8b3a7293f892b8aa6ff296ab0e9d2c32f47e2d"
+        echo "SIZE2/HASH2 (ours):           ${{ inputs.expected_size2 }} / ${{ inputs.expected_hash2 }}"
+
     - name: Upload kernelsu.ko artifact
       uses: actions/upload-artifact@v7
       with:
         name: aarch64-${{ inputs.kmi }}-lkm
         path: /github/workspace/out/aarch64/${{ inputs.kmi }}_kernelsu.ko
-
